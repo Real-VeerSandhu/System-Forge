@@ -32,7 +32,7 @@ const Simulation = () => {
   const [logs, setLogs] = useState([]);
 
   // Initialize services
-  useEffect(() => {
+  useEffect(() => { 
     setServices({
       gateway: { type: ServiceTypes.API_GATEWAY, state: AnimationStates.IDLE, load: 0 },
       auth: { type: ServiceTypes.AUTH, state: AnimationStates.IDLE, load: 0 },
