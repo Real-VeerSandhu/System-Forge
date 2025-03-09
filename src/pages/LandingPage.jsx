@@ -1,3 +1,7 @@
+import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+
+
+
 const LandingPage = () => {
     return (
         <div className="min-h-screen w-screen flex flex-col items-center justify-center px-6 pt-20 text-center">
@@ -19,7 +23,22 @@ const LandingPage = () => {
             <button className="mt-6 px-6 py-3 bg-primary text-white font-semibold rounded-lg shadow-md hover:scale-110 transition">
               Get Started
             </button>
+
           </main>
+
+            <h3 className="text-xl font-bold">Temp bar</h3>
+            <div className="space-x-4">
+              <Link to="/" className=" hover:text-secondary">Home</Link>
+              <Link to="/model-demo" className=" hover:text-secondary">Shell</Link>
+              <Link to="/simulation" className=" hover:text-secondary">Simple Simulation</Link>
+              {/* <Link to="/about" className=" hover:text-secondary">Simulation 2</Link> */}
+              <Link to="/system-simulation" className=" hover:text-secondary">System Simulation</Link>
+              {/* <Link to="/aboutpage" className=" hover:text-secondary">About Page</Link> */}
+              <Link to="/test" className=" hover:text-secondary">Test</Link>
+              {/* <Link to="/data-pipeline-simulation" className=" hover:text-secondary">Data Pipeline Simulation</Link> */}
+
+            </div>
+    
         </div>
       );
 }
