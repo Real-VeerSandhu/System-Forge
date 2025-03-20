@@ -577,6 +577,9 @@ const DataPipelineSimulation = () => {
                   </div>
                 </div>
                 
+
+
+                
                 {/* Third row */}
                 <div className="col-span-4">
                   <PipelineComponent {...components.analytics} />
