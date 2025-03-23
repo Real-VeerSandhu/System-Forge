@@ -32,6 +32,7 @@ const LandingPage = () => {
               <Link to="/model-demo" className=" hover:text-secondary">Model Demo</Link>
               <Link to="/simulation" className=" hover:text-secondary">Simple Simulation</Link>
               <Link to="/sim-test" className=" hover:text-secondary">Sim Test</Link>
+              <Link to="/sim-test2" className=" hover:text-secondary">Sim Test2</Link>
               {/* <Link to="/about" className=" hover:text-secondary">Simulation 2</Link> */}
               <Link to="/system-simulation" className=" hover:text-secondary">System Simulation</Link>
               {/* <Link to="/aboutpage" className=" hover:text-secondary">About Page</Link> */}
