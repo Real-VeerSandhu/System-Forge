@@ -29,8 +29,9 @@ const LandingPage = () => {
             <h3 className="text-xl font-bold">Temp bar</h3>
             <div className="space-x-4">
               <Link to="/" className=" hover:text-secondary">Home</Link>
-              <Link to="/model-demo" className=" hover:text-secondary">Shell</Link>
+              <Link to="/model-demo" className=" hover:text-secondary">Model Demo</Link>
               <Link to="/simulation" className=" hover:text-secondary">Simple Simulation</Link>
+              <Link to="/sim-test" className=" hover:text-secondary">Sim Test</Link>
               {/* <Link to="/about" className=" hover:text-secondary">Simulation 2</Link> */}
               <Link to="/system-simulation" className=" hover:text-secondary">System Simulation</Link>
               {/* <Link to="/aboutpage" className=" hover:text-secondary">About Page</Link> */}

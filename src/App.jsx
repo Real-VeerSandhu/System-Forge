@@ -7,6 +7,8 @@ import Simulation from './pages/Simulation';
 import Test from './pages/Test';
 import SystemSimulation from './pages/SystemSimulation';
 import DataPipelineSimulation from './pages/DataPipelineSimulation';
+import DataPipelineSimulator from './pages/SimTest';
+import DataPipelineSimulationTest from './pages/SimTest2';
 
 const THEME = "light"
 
@@ -252,6 +254,8 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/model-demo" element={<ModelDemo />} />
           <Route path="/simulation" element={<Simulation />} />
+          <Route path="/sim-test" element={<DataPipelineSimulator />} />
+          <Route path="/sim-test2" element={<DataPipelineSimulationTest />} />
 
           {/* <Route path="/about" element={<About />} /> */}
           <Route path="/system-simulation" element={<SystemSimulation />} />
