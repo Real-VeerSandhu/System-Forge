@@ -874,14 +874,15 @@ const SystemSimulation = () => {
   };
 
   return (
-    <div className="z-10">
-      <div className="flex min-h-screen pt-4 pb-1 px-2">
+    <div className="z-50">
+      {/* flex min-h-screen pt-[4%] pb-1 px-2 */}
+      <div className="flex min-h-screen pt-[4%] pb-1 px-2">
         <div className="w-full flex flex-col md:flex-row rounded-lg">
           {/* Left Sidebar */}
           <div className="w-full md:w-1/5 p-4 border-2 border-primary rounded-lg">
             <h2 className="text-xl font-semibold mb-4">Simulation Config</h2>
             
-            <div className="mb-4">
+            <div className="mb-4 z-10">
               <label className="block text-sm font-medium py-2">Request Rate (req/s)</label>
               <input
                 type="range"
