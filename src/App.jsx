@@ -9,6 +9,7 @@ import SystemSimulation from './pages/SystemSimulation';
 import DataPipelineSimulation from './pages/DataPipelineSimulation';
 import DataPipelineSimulator from './pages/SimTest';
 import DataPipelineSimulationTest from './pages/SimTest2';
+import SimChat from './pages/SimChat';
 
 const THEME = "light"
 
@@ -256,6 +257,7 @@ export default function App() {
           <Route path="/simulation" element={<Simulation />} />
           <Route path="/sim-test" element={<DataPipelineSimulator />} />
           <Route path="/sim-test2" element={<DataPipelineSimulationTest />} />
+          <Route path="/sim-chat" element={<SimChat />} />
 
           {/* <Route path="/about" element={<About />} /> */}
           <Route path="/system-simulation" element={<SystemSimulation />} />

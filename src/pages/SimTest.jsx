@@ -589,7 +589,7 @@ const DataPipelineSimulator = () => {
                         dataKey="value" 
                         stroke="#3b82f6" 
                         strokeWidth={2}
-                        isAnimationActive={false}
+                        isAnimationActive={true}
                       />
                     </LineChart>
                   </ResponsiveContainer>
