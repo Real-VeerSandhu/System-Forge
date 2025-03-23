@@ -1,723 +1,435 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Trash, Play, Pause, AlertTriangle } from 'lucide-react';
 
-const DataPipelineSimulation = () => {
-  // State for pipeline configuration
-  const [dataSources, setDataSources] = useState([
-    { id: 1, name: 'Source 1', dataRate: 50, enabled: true }
-  ]);
-  const [cores, setCores] = useState([
-    { id: 1, speed: 50, utilization: 0, enabled: true }
-  ]);
-  const [batchSize, setBatchSize] = useState(50);
-  const [bufferSize, setBufferSize] = useState(100);
+const DataPipelineSimulationTest = () => {
+  // State for user configurable inputs
+  const [dataSources, setDataSources] = useState(1);
+  const [cores, setCores] = useState(1);
   const [isRunning, setIsRunning] = useState(false);
-  const [processingSpeed, setProcessingSpeed] = useState(0);
-  const [systemLoad, setSystemLoad] = useState(0);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [itemType, setItemType] = useState(null);
-  const [alerts, setAlerts] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [performanceHistory, setPerformanceHistory] = useState([]);
-  const [simulationTime, setSimulationTime] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [selectedCore, setSelectedCore] = useState(null);
+  const [coreSettings, setCoreSettings] = useState([
+    { id: 0, efficiency: 50, heatLevel: 0, load: 0, dataProcessed: 0 }
+  ]);
+  const [sourceSettings, setSourceSettings] = useState([
+    { id: 0, dataSize: 100, dataRate: 50, complexity: 30 }
+  ]);
+  const [simulationStats, setSimulationStats] = useState({
+    totalProcessed: 0,
+    averageLoad: 0,
+    timeRemaining: 0,
+    overallEfficiency: 0,
+    alerts: []
+  });
   
-  const logEndRef = useRef(null);
-
-  // Scroll to bottom of logs when new logs are added
+  // Refs for animation and timing
+  const animationRef = useRef(null);
+  const lastUpdateTimeRef = useRef(0);
+  const simulationStartTimeRef = useRef(0);
+  const totalSimTime = 30000; // 30 seconds total simulation time
+  
+  // Initialize settings when cores or data sources change
   useEffect(() => {
-    if (logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs]);
-
-  // Add log message
-  const addLog = (message, type = 'info') => {
-    const timestamp = new Date().toLocaleTimeString();
-    setLogs(prevLogs => [...prevLogs, { id: Date.now(), message, timestamp, type }]);
+    // Initialize core settings
+    const newCoreSettings = Array.from({ length: cores }, (_, i) => {
+      return i < coreSettings.length 
+        ? coreSettings[i] 
+        : { id: i, efficiency: 50, heatLevel: 0, load: 0, dataProcessed: 0 };
+    });
+    setCoreSettings(newCoreSettings);
     
-    // Keep only the most recent 100 logs to prevent memory issues
-    if (logs.length > 100) {
-      setLogs(prevLogs => prevLogs.slice(-100));
+    // Initialize data source settings
+    const newSourceSettings = Array.from({ length: dataSources }, (_, i) => {
+      return i < sourceSettings.length 
+        ? sourceSettings[i] 
+        : { id: i, dataSize: 100, dataRate: 50, complexity: 30 };
+    });
+    setSourceSettings(newSourceSettings);
+    
+  }, [cores, dataSources]);
+
+  // Update core setting
+  const updateCoreSetting = (id, setting, value) => {
+    setCoreSettings(prevSettings => 
+      prevSettings.map(core => 
+        core.id === id ? { ...core, [setting]: value } : core
+      )
+    );
+  };
+  
+  // Update source setting
+  const updateSourceSetting = (id, setting, value) => {
+    setSourceSettings(prevSettings => 
+      prevSettings.map(source => 
+        source.id === id ? { ...source, [setting]: value } : source
+      )
+    );
+  };
+  
+  // Start simulation
+  const startSimulation = () => {
+    if (isRunning) return;
+    
+    setIsRunning(true);
+    setProgress(0);
+    simulationStartTimeRef.current = Date.now();
+    lastUpdateTimeRef.current = Date.now();
+    
+    // Reset core stats
+    setCoreSettings(prev => 
+      prev.map(core => ({ ...core, load: 0, dataProcessed: 0, heatLevel: 0 }))
+    );
+    
+    // Reset simulation stats
+    setSimulationStats({
+      totalProcessed: 0,
+      averageLoad: 0,
+      timeRemaining: totalSimTime / 1000,
+      overallEfficiency: 0,
+      alerts: []
+    });
+    
+    // Start the animation loop
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    animationRef.current = requestAnimationFrame(updateSimulation);
+  };
+  
+  // Stop simulation
+  const stopSimulation = () => {
+    if (!isRunning) return;
+    
+    setIsRunning(false);
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
     }
   };
-
-  // Calculate processing speed and system load
-  useEffect(() => {
-    if (isRunning) {
-      const interval = setInterval(() => {
-        // Increment simulation time
-        setSimulationTime(prevTime => prevTime + 1);
+  
+  // Update simulation state
+  const updateSimulation = () => {
+    const now = Date.now();
+    const elapsedSinceStart = now - simulationStartTimeRef.current;
+    const deltaTime = now - lastUpdateTimeRef.current;
+    
+    // Update progress based on elapsed time
+    const newProgress = Math.min(100, (elapsedSinceStart / totalSimTime) * 100);
+    setProgress(newProgress);
+    
+    // Stop if simulation is complete
+    if (newProgress >= 100) {
+      stopSimulation();
+      return;
+    }
+    
+    // Update simulation state (only every ~50ms for performance)
+    if (deltaTime >= 50) {
+      lastUpdateTimeRef.current = now;
+      
+      // Calculate total data input based on all sources
+      const totalDataInput = sourceSettings.reduce((total, source) => {
+        return total + (source.dataRate * source.dataSize / 5000) * deltaTime;
+      }, 0);
+      
+      // Distribute data to cores based on their settings
+      const totalEfficiency = coreSettings.reduce((sum, core) => sum + core.efficiency, 0);
+      const dataPerEfficiencyUnit = totalDataInput / Math.max(1, totalEfficiency);
+      
+      // Update each core's stats
+      const updatedCores = coreSettings.map(core => {
+        // Calculate how much data this core should process
+        const dataForThisCore = core.efficiency * dataPerEfficiencyUnit;
         
-        // Calculate total input data rate
-        const totalDataRate = dataSources
-          .filter(source => source.enabled)
-          .reduce((sum, source) => sum + source.dataRate, 0);
+        // Add some randomness to the load (more significant fluctuations)
+        const randomFactor = 0.7 + Math.random() * 0.6; // 0.7 to 1.3
         
-        // Calculate total processing capacity
-        const enabledCores = cores.filter(core => core.enabled);
-        const totalProcessingCapacity = enabledCores.reduce((sum, core) => sum + core.speed, 0);
-        
-        // Calculate new processing speed and load
-        let newProcessingSpeed = Math.min(totalDataRate, totalProcessingCapacity);
-        
-        // Adjust for batch size and buffer efficiency
-        const batchEfficiency = batchSize / 100; // Higher batch size = more efficiency, up to a point
-        const bufferEfficiency = Math.min(bufferSize / 100, 1.5); // Diminishing returns after certain point
-        newProcessingSpeed = newProcessingSpeed * batchEfficiency * bufferEfficiency;
-        
-        // Calculate load on each core
-        const newCores = [...cores];
-        if (enabledCores.length > 0) {
-          const loadPerCore = totalDataRate / enabledCores.length;
-          
-          newCores.forEach(core => {
-            if (core.enabled) {
-              // Calculate utilization percentage (capped at 100%)
-              core.utilization = Math.min(Math.round((loadPerCore / core.speed) * 100), 100);
-            } else {
-              core.utilization = 0;
-            }
-          });
-        }
-        
-        // Set new state
-        setCores(newCores);
-        setProcessingSpeed(Math.round(newProcessingSpeed));
-        
-        // Calculate overall system load
-        const newSystemLoad = enabledCores.length > 0 
-          ? Math.round(totalDataRate / totalProcessingCapacity * 100)
-          : 0;
-        
-        setSystemLoad(newSystemLoad);
-        
-        // Update performance history
-        setPerformanceHistory(prevHistory => {
-          const newDataPoint = {
-            time: simulationTime,
-            processingSpeed: Math.round(newProcessingSpeed),
-            systemLoad: newSystemLoad,
-            activeDataSources: dataSources.filter(s => s.enabled).length,
-            activeCores: enabledCores.length
-          };
-          
-          // Keep only the most recent 50 data points
-          const updatedHistory = [...prevHistory, newDataPoint].slice(-50);
-          return updatedHistory;
+        // Calculate the load based on data and core efficiency
+        let loadFactor = 0;
+        sourceSettings.forEach(source => {
+          loadFactor += source.complexity / 30;
         });
         
-        // Generate alerts based on system load
-        if (newSystemLoad > 90) {
-          addLog("CRITICAL: System overloaded! Add more cores or reduce data input.", "error");
-          setAlerts(prev => {
-            const newAlert = { id: Date.now(), message: "CRITICAL: System overloaded! Add more cores or reduce data input.", type: "critical" };
-            return [...prev, newAlert].slice(-3);
-          });
-        } else if (newSystemLoad > 70 && Math.random() > 0.7) { // Randomize to prevent spam
-          addLog("WARNING: High system load detected.", "warning");
-          setAlerts(prev => {
-            const newAlert = { id: Date.now(), message: "WARNING: High system load detected.", type: "warning" };
-            return [...prev, newAlert].slice(-3);
-          });
-        }
+        const rawLoad = (dataForThisCore * loadFactor) / (core.efficiency / 40);
+        const load = Math.min(100, Math.max(5, rawLoad * randomFactor));
         
-        // Add occasional logs
-        if (simulationTime % 5 === 0) {
-          addLog(`Processing data at ${Math.round(newProcessingSpeed)} MB/s with system load of ${newSystemLoad}%`);
-        }
+        // Calculate heat level based on load over time
+        const heatChange = (load > 70 ? (load - 70) / 10 : -3) * (deltaTime / 1000);
+        const heatLevel = Math.min(100, Math.max(0, core.heatLevel + heatChange));
         
-        // Random events to make logs more interesting
-        if (Math.random() > 0.9) {
-          const randomEvents = [
-            "Data batch processing completed successfully.",
-            "Buffer management optimizing flow.",
-            "Data compression ratio optimized.",
-            "Rebalancing workload across cores.",
-            "Checking data integrity - all packets valid."
-          ];
-          addLog(randomEvents[Math.floor(Math.random() * randomEvents.length)]);
+        return {
+          ...core,
+          load: load,
+          heatLevel: heatLevel,
+          dataProcessed: core.dataProcessed + dataForThisCore
+        };
+      });
+      
+      // Update cores state
+      setCoreSettings(updatedCores);
+      
+      // Generate alerts
+      const newAlerts = [];
+      updatedCores.forEach(core => {
+        if (core.load > 90) {
+          newAlerts.push(`Core ${core.id + 1} is at critical load (${Math.round(core.load)}%)!`);
+        } else if (core.heatLevel > 80) {
+          newAlerts.push(`Core ${core.id + 1} is overheating (${Math.round(core.heatLevel)}%)!`);
         }
-      }, 1000);
+      });
       
-      addLog("Simulation started", "success");
+      // Update overall stats
+      const totalProcessed = updatedCores.reduce((sum, core) => sum + core.dataProcessed, 0);
+      const averageLoad = updatedCores.reduce((sum, core) => sum + core.load, 0) / cores;
+      const timeRemaining = ((100 - newProgress) / 100) * (totalSimTime / 1000);
       
-      return () => {
-        clearInterval(interval);
-        addLog("Simulation stopped", "info");
-      };
-    }
-  }, [isRunning, cores, dataSources, batchSize, bufferSize, simulationTime]);
-
-  // Add a new data source
-  const addDataSource = () => {
-    if (dataSources.length < 3) {
-      const newId = Math.max(...dataSources.map(source => source.id), 0) + 1;
-      const newSource = { 
-        id: newId, 
-        name: `Source ${newId}`, 
-        dataRate: 50, 
-        enabled: true 
-      };
-      setDataSources([...dataSources, newSource]);
-      addLog(`Added new data source: ${newSource.name}`);
-    }
-  };
-
-  // Remove a data source
-  const removeDataSource = (sourceId) => {
-    const sourceToRemove = dataSources.find(source => source.id === sourceId);
-    if (sourceToRemove) {
-      setDataSources(dataSources.filter(source => source.id !== sourceId));
-      addLog(`Removed data source: ${sourceToRemove.name}`, "info");
+      const totalDataSize = sourceSettings.reduce((sum, source) => sum + source.dataSize, 0);
+      const overallEfficiency = totalProcessed / Math.max(1, (elapsedSinceStart / 1000) * totalDataSize / 30) * 100;
       
-      // If the removed source was selected, clear selection
-      if (selectedItem && itemType === 'source' && selectedItem.id === sourceId) {
-        setSelectedItem(null);
-        setItemType(null);
-      }
+      setSimulationStats({
+        totalProcessed: Math.round(totalProcessed),
+        averageLoad: Math.round(averageLoad),
+        timeRemaining: Math.round(timeRemaining),
+        overallEfficiency: Math.min(100, Math.round(overallEfficiency)),
+        alerts: [...new Set([...simulationStats.alerts, ...newAlerts])].slice(-3) // Keep latest 3 unique alerts
+      });
     }
-  };
-
-  // Add a new core
-  const addCore = () => {
-    if (cores.length < 5) {
-      const newId = Math.max(...cores.map(core => core.id), 0) + 1;
-      const newCore = { 
-        id: newId, 
-        speed: 50, 
-        utilization: 0, 
-        enabled: true 
-      };
-      setCores([...cores, newCore]);
-      addLog(`Added new processing core: Core ${newCore.id}`);
-    }
-  };
-
-  // Remove a core
-  const removeCore = (coreId) => {
-    const coreToRemove = cores.find(core => core.id === coreId);
-    if (coreToRemove) {
-      setCores(cores.filter(core => core.id !== coreId));
-      addLog(`Removed processing core: Core ${coreToRemove.id}`, "info");
-      
-      // If the removed core was selected, clear selection
-      if (selectedItem && itemType === 'core' && selectedItem.id === coreId) {
-        setSelectedItem(null);
-        setItemType(null);
-      }
-    }
-  };
-
-  // Handle configuration panel updates
-  const handleConfigUpdate = (e) => {
-    const { name, value, type, checked } = e.target;
     
-    if (itemType === 'source') {
-      const updatedSources = dataSources.map(source => 
-        source.id === selectedItem.id 
-          ? { ...source, [name]: type === 'checkbox' ? checked : Number(value) }
-          : source
-      );
-      setDataSources(updatedSources);
-      
-      if (name === 'enabled') {
-        addLog(`${selectedItem.name} ${checked ? 'enabled' : 'disabled'}`, checked ? 'success' : 'info');
-      } else if (name === 'dataRate') {
-        addLog(`${selectedItem.name} data rate updated to ${value} MB/s`);
+    // Continue animation loop if still running
+    if (isRunning) {
+      animationRef.current = requestAnimationFrame(updateSimulation);
+    }
+  };
+  
+  // Get color based on load percentage
+  const getLoadColor = (load) => {
+    if (load < 50) return 'bg-green-500';
+    if (load < 75) return 'bg-yellow-500';
+    if (load < 90) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
+  
+  // Get color based on heat level
+  const getHeatColor = (heat) => {
+    if (heat < 40) return 'bg-blue-500';
+    if (heat < 70) return 'bg-yellow-500';
+    if (heat < 90) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
+
+  // Clean up animation frame on unmount
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
-    } else if (itemType === 'core') {
-      const updatedCores = cores.map(core => 
-        core.id === selectedItem.id 
-          ? { ...core, [name]: type === 'checkbox' ? checked : Number(value) }
-          : core
-      );
-      setCores(updatedCores);
-      
-      if (name === 'enabled') {
-        addLog(`Core ${selectedItem.id} ${checked ? 'enabled' : 'disabled'}`, checked ? 'success' : 'info');
-      } else if (name === 'speed') {
-        addLog(`Core ${selectedItem.id} speed updated to ${value} MB/s`);
-      }
-    }
-  };
-
-  // Get color based on utilization
-  const getUtilizationColor = (utilization) => {
-    if (utilization > 90) return "bg-red-500";
-    if (utilization > 70) return "bg-yellow-500";
-    return "bg-green-500";
-  };
-
-  // Get color based on system load
-  const getSystemLoadColor = (load) => {
-    if (load > 90) return "text-red-500";
-    if (load > 70) return "text-yellow-500";
-    return "text-green-500";
-  };
-
-  // Handle selecting an item for configuration
-  const selectItem = (item, type) => {
-    setSelectedItem(item);
-    setItemType(type);
-  };
-
-  // Toggle simulation running state
-  const toggleSimulation = () => {
-    setIsRunning(!isRunning);
-  };
-
-  // Handle global setting changes
-  const handleGlobalSettingChange = (setting, value) => {
-    if (setting === 'batchSize') {
-      setBatchSize(Number(value));
-      addLog(`Batch size updated to ${value}`);
-    } else if (setting === 'bufferSize') {
-      setBufferSize(Number(value));
-      addLog(`Buffer size updated to ${value}`);
-    }
-  };
-
-  // Render the configuration panel
-  const renderConfigPanel = () => {
-    if (!selectedItem) return (
-      <div className="p-4 border rounded-lg bg-white shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">Configuration</h3>
-        <p>Click on a data source or core to configure it.</p>
-      </div>
-    );
-
-    if (itemType === 'source') {
-      return (
-        <div className="p-4 border rounded-lg bg-white shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Configure Data Source</h3>
-            <button 
-              onClick={() => removeDataSource(selectedItem.id)} 
-              className="btn btn-sm btn-error"
-              title="Remove this data source"
-            >
-              <Trash size={16} />
-            </button>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name</label>
-              <input
-                type="text"
-                name="name"
-                value={selectedItem.name}
-                onChange={handleConfigUpdate}
-                className="input input-bordered w-full"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Data Rate (MB/s)</label>
-              <input
-                type="range"
-                name="dataRate"
-                min="10"
-                max="100"
-                value={selectedItem.dataRate}
-                onChange={handleConfigUpdate}
-                className="range w-full"
-              />
-              <p className="text-sm mt-1">{selectedItem.dataRate} MB/s</p>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="enabled"
-                checked={selectedItem.enabled}
-                onChange={handleConfigUpdate}
-                className="checkbox mr-2"
-              />
-              <label className="text-sm font-medium">Enabled</label>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (itemType === 'core') {
-      return (
-        <div className="p-4 border rounded-lg bg-white shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Configure Processing Core</h3>
-            <button 
-              onClick={() => removeCore(selectedItem.id)} 
-              className="btn btn-sm btn-error"
-              title="Remove this core"
-            >
-              <Trash size={16} />
-            </button>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Processing Speed (MB/s)</label>
-              <input
-                type="range"
-                name="speed"
-                min="10"
-                max="100"
-                value={selectedItem.speed}
-                onChange={handleConfigUpdate}
-                className="range w-full"
-              />
-              <p className="text-sm mt-1">{selectedItem.speed} MB/s</p>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="enabled"
-                checked={selectedItem.enabled}
-                onChange={handleConfigUpdate}
-                className="checkbox mr-2"
-              />
-              <label className="text-sm font-medium">Enabled</label>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Current Utilization</label>
-              <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full ${getUtilizationColor(selectedItem.utilization)}`} 
-                  style={{ width: `${selectedItem.utilization}%` }}
-                ></div>
-              </div>
-              <p className="text-sm mt-1">{selectedItem.utilization}%</p>
-            </div>
-          </div>
-        </div>
-      );
-    }
-  };
+    };
+  }, []);
 
   return (
-    <div className="flex min-h-screen pt-[4%] pb-1 px-2 bg-gray-50">
+    <div className="flex min-h-screen pt-16 pb-1 px-2">
       <div className="w-full flex rounded-lg">
-        {/* Left Sidebar */}
-        <div className="w-1/5 p-4 border-2 border-primary rounded-lg bg-white shadow-md">
-          <h2 className="text-xl font-semibold mb-4 text-primary">Pipeline Configuration</h2>
+        {/* Left Sidebar (25%) */}
+        <div className="w-1/4 p-4 border-2 border-primary rounded-lg">
+          <h2 className="text-xl font-semibold mb-4">Pipeline Configuration</h2>
           
-          {/* Data Sources */}
+          {/* Data Source Configuration */}
           <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium">Data Sources ({dataSources.length}/3)</label>
-              <button 
-                onClick={addDataSource} 
-                disabled={dataSources.length >= 3}
-                className="btn btn-xs btn-primary"
-              >
-                Add
-              </button>
-            </div>
-            <div className="space-y-2">
-              {dataSources.map(source => (
-                <div 
-                  key={source.id}
-                  onClick={() => selectItem(source, 'source')}
-                  className={`p-2 border rounded-lg cursor-pointer hover:border-primary transition-colors ${
-                    selectedItem?.id === source.id && itemType === 'source' ? 'border-primary bg-primary/10' : ''
-                  }`}
-                >
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm font-medium">{source.name}</p>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeDataSource(source.id);
-                      }} 
-                      className="text-red-500 hover:text-red-700"
-                      title="Remove this data source"
-                    >
-                      <Trash size={14} />
-                    </button>
-                  </div>
+            <label className="block text-sm font-medium py-2">Number of Data Sources</label>
+            <input 
+              type="range" 
+              min="1" 
+              max="3" 
+              value={dataSources} 
+              onChange={(e) => setDataSources(parseInt(e.target.value))} 
+              className="range"
+              disabled={isRunning}
+            />
+            <p>Sources: {dataSources}</p>
+          </div>
+          
+          {/* Source Settings */}
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold mb-2">Source Settings</h3>
+            {sourceSettings.map(source => (
+              <div key={source.id} className="mb-2 p-2 border rounded">
+                <p className="font-medium">Source {source.id + 1}</p>
+                
+                <div className="mb-1">
+                  <label className="block text-xs">Data Size</label>
+                  <input 
+                    type="range" 
+                    min="10" 
+                    max="200" 
+                    value={source.dataSize} 
+                    onChange={(e) => updateSourceSetting(source.id, 'dataSize', parseInt(e.target.value))} 
+                    className="range range-xs"
+                    disabled={isRunning}
+                  />
+                  <p className="text-xs">{source.dataSize} MB</p>
+                </div>
+                
+                <div className="mb-1">
+                  <label className="block text-xs">Data Rate</label>
+                  <input 
+                    type="range" 
+                    min="10" 
+                    max="100" 
+                    value={source.dataRate} 
+                    onChange={(e) => updateSourceSetting(source.id, 'dataRate', parseInt(e.target.value))} 
+                    className="range range-xs"
+                    disabled={isRunning}
+                  />
                   <p className="text-xs">{source.dataRate} MB/s</p>
-                  <p className={`text-xs ${source.enabled ? 'text-green-600' : 'text-red-600'}`}>
-                    {source.enabled ? 'Enabled' : 'Disabled'}
-                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* Cores */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium">Processing Cores ({cores.length}/5)</label>
-              <button 
-                onClick={addCore} 
-                disabled={cores.length >= 5}
-                className="btn btn-xs btn-primary"
-              >
-                Add
-              </button>
-            </div>
-            <div className="space-y-2">
-              {cores.map(core => (
-                <div 
-                  key={core.id}
-                  onClick={() => selectItem(core, 'core')}
-                  className={`p-2 border rounded-lg cursor-pointer hover:border-primary transition-colors ${
-                    selectedItem?.id === core.id && itemType === 'core' ? 'border-primary bg-primary/10' : ''
-                  }`}
-                >
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm font-medium">Core {core.id}</p>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeCore(core.id);
-                      }} 
-                      className="text-red-500 hover:text-red-700"
-                      title="Remove this core"
-                    >
-                      <Trash size={14} />
-                    </button>
-                  </div>
-                  <p className="text-xs">{core.speed} MB/s</p>
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mt-1">
-                    <div 
-                      className={`h-full ${getUtilizationColor(core.utilization)}`} 
-                      style={{ width: `${core.utilization}%` }}
-                    ></div>
-                  </div>
+                
+                <div className="mb-1">
+                  <label className="block text-xs">Complexity</label>
+                  <input 
+                    type="range" 
+                    min="10" 
+                    max="100" 
+                    value={source.complexity} 
+                    onChange={(e) => updateSourceSetting(source.id, 'complexity', parseInt(e.target.value))} 
+                    className="range range-xs"
+                    disabled={isRunning}
+                  />
+                  <p className="text-xs">{source.complexity}%</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
           
-          {/* Global Settings */}
+          {/* Parallel Processing Configuration */}
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Batch Size</label>
-            <input
-              type="range"
-              min="10"
-              max="200"
-              value={batchSize}
-              onChange={(e) => handleGlobalSettingChange('batchSize', e.target.value)}
-              className="range w-full"
+            <label className="block text-sm font-medium py-2">Number of Processing Cores</label>
+            <input 
+              type="range" 
+              min="1" 
+              max="5" 
+              value={cores} 
+              onChange={(e) => setCores(parseInt(e.target.value))} 
+              className="range"
+              disabled={isRunning}
             />
-            <p className="text-xs mt-1">Batch Size: {batchSize}</p>
-          </div>
-          
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Buffer Size</label>
-            <input
-              type="range"
-              min="10"
-              max="200"
-              value={bufferSize}
-              onChange={(e) => handleGlobalSettingChange('bufferSize', e.target.value)}
-              className="range w-full"
-            />
-            <p className="text-xs mt-1">Buffer Size: {bufferSize}</p>
+            <p>Cores: {cores}</p>
           </div>
           
           {/* Run Button */}
           <button 
-            onClick={toggleSimulation} 
-            className={`btn ${isRunning ? 'btn-error' : 'btn-primary'} w-full mb-4 flex items-center justify-center`}
+            onClick={isRunning ? stopSimulation : startSimulation} 
+            className={`btn w-full ${isRunning ? 'btn-error' : 'btn-primary'}`}
           >
-            {isRunning ? <Pause size={18} className="mr-2" /> : <Play size={18} className="mr-2" />}
-            {isRunning ? 'Stop' : 'Run'} Simulation
+            {isRunning ? 'Stop Simulation' : 'Run Simulation'}
           </button>
         </div>
         
-        {/* Right Content Section */}
-        <div className="w-4/5 p-4">
-          <h1 className="text-3xl font-bold mb-4 text-primary">Data Pipeline Simulation</h1>
-          
-          {/* Status Panel */}
-          <div className="mb-6 p-4 border rounded-lg bg-white shadow-sm">
-            <h3 className="text-xl font-semibold mb-2">Pipeline Status</h3>
-            <div className="grid grid-cols-4 gap-4">
-              <div className="p-3 border rounded-lg bg-gray-50">
-                <p className="text-sm font-medium">Processing Speed</p>
-                <p className="text-2xl font-bold">{processingSpeed} MB/s</p>
-              </div>
-              <div className="p-3 border rounded-lg bg-gray-50">
-                <p className="text-sm font-medium">System Load</p>
-                <p className={`text-2xl font-bold ${getSystemLoadColor(systemLoad)}`}>
-                  {systemLoad}%
-                </p>
-              </div>
-              <div className="p-3 border rounded-lg bg-gray-50">
-                <p className="text-sm font-medium">Active Components</p>
-                <p className="text-2xl font-bold">
-                  {dataSources.filter(s => s.enabled).length} Sources, {cores.filter(c => c.enabled).length} Cores
-                </p>
-              </div>
-              <div className="p-3 border rounded-lg bg-gray-50">
-                <p className="text-sm font-medium">Simulation Time</p>
-                <p className="text-2xl font-bold">{simulationTime}s</p>
-              </div>
+        {/* Right Output Section (75%) */}
+        <div className="w-3/4 p-4">
+          <div className="flex justify-between mb-4">
+            <h1 className="text-3xl font-bold">Data Pipeline Simulation</h1>
+            
+            {/* Overall Status */}
+            <div className="text-right">
+              <p><strong>Status:</strong> {isRunning ? 'Running' : 'Stopped'}</p>
+              <p><strong>Progress:</strong> {Math.round(progress)}%</p>
+              <p><strong>Time Remaining:</strong> {simulationStats.timeRemaining}s</p>
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            {/* Left Column */}
-            <div className="space-y-4">
-              {/* Pipeline Visualization */}
-              <div className="p-4 border rounded-lg bg-white shadow-sm">
-                <h3 className="text-lg font-semibold mb-4">Pipeline Visualization</h3>
-                <div className="relative h-64 border rounded-lg p-4 bg-gray-50">
-                  {/* Data Sources */}
-                  <div className="absolute left-0 top-0 bottom-0 w-24 flex flex-col justify-around p-2">
-                    {dataSources.map((source) => (
+          {/* Progress Bar */}
+          <div className="w-full bg-gray-200 rounded-full h-4 mb-6">
+            <div 
+              className="bg-blue-600 h-4 rounded-full transition-all duration-500" 
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+          
+          {/* Core visualization and status */}
+          <div className="grid grid-cols-1 gap-4 mb-6">
+            <h2 className="text-xl font-semibold mb-2">Processing Cores Status</h2>
+            
+            <div className={`grid grid-cols-${Math.min(cores, 5)} gap-4`}>
+              {coreSettings.map(core => (
+                <div 
+                  key={core.id} 
+                  className={`p-3 border rounded-lg cursor-pointer ${selectedCore === core.id ? 'border-blue-500 border-2' : ''}`}
+                  onClick={() => setSelectedCore(core.id)}
+                >
+                  <h3 className="font-semibold mb-2">Core {core.id + 1}</h3>
+                  
+                  {/* Load Bar */}
+                  <div className="mb-2">
+                    <label className="text-xs block">Load:</label>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
                       <div 
-                        key={source.id}
-                        className={`h-12 rounded-lg flex items-center justify-center transition-colors 
-                          ${source.enabled ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-                      >
-                        {source.name}
-                      </div>
-                    ))}
+                        className={`${getLoadColor(core.load)} h-3 rounded-full transition-all duration-300`} 
+                        style={{ width: `${core.load}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs">{Math.round(core.load)}%</p>
                   </div>
                   
-                  {/* Data Flow Lines */}
-                  <div className="absolute left-24 right-24 top-0 bottom-0 flex items-center justify-center">
-                    {isRunning && (
-                      <div className="w-full h-1/2 relative">
-                        {/* Animated data flow */}
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="h-0.5 w-full bg-gray-300 relative">
-                            {[...Array(5)].map((_, i) => (
-                              <div 
-                                key={i}
-                                className="absolute h-2 w-2 rounded-full bg-blue-500"
-                                style={{ 
-                                  left: `${(i * 20 + (Date.now() / 50) % 100) % 100}%`,
-                                  animationName: 'flowAnimation',
-                                  animationDuration: '2s',
-                                  animationIterationCount: 'infinite',
-                                  animationTimingFunction: 'linear'
-                                }}
-                              ></div>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        {/* Buffer */}
-                        <div className="absolute right-0 -top-4 bottom-4 w-10 flex items-center">
-                          <div className="h-8 w-8 rounded-full border-2 border-orange-500 flex items-center justify-center bg-white">
-                            <span className="text-xs">BUF</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                  {/* Heat Level */}
+                  <div className="mb-2">
+                    <label className="text-xs block">Heat:</label>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div 
+                        className={`${getHeatColor(core.heatLevel)} h-3 rounded-full transition-all duration-500`} 
+                        style={{ width: `${core.heatLevel}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs">{Math.round(core.heatLevel)}%</p>
                   </div>
                   
-                  {/* Processing Cores */}
-                  <div className="absolute right-0 top-0 bottom-0 w-24 flex flex-col justify-around p-2">
-                    {cores.map(core => (
-                      <div 
-                        key={core.id}
-                        className={`h-8 rounded-lg flex items-center justify-center transition-colors 
-                          ${core.enabled 
-                            ? getUtilizationColor(core.utilization) + ' text-white' 
-                            : 'bg-gray-200'}`}
-                      >
-                        Core {core.id} ({core.utilization}%)
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-xs"><strong>Data:</strong> {Math.round(core.dataProcessed)} MB</p>
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Core Configuration (when a core is selected) */}
+          {selectedCore !== null && (
+            <div className="border p-4 rounded-lg mb-6">
+              <h3 className="font-semibold mb-2">Core {selectedCore + 1} Configuration</h3>
               
-              {/* Performance Charts */}
-              <div className="p-4 border rounded-lg bg-white shadow-sm">
-                <h3 className="text-lg font-semibold mb-4">Performance Metrics</h3>
-                <div style={{ width: '100%', height: 250 }}>
-                  <ResponsiveContainer>
-                    <LineChart data={performanceHistory} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="time" 
-                        label={{ value: 'Time (s)', position: 'insideBottomRight', offset: -10 }} 
-                      />
-                      <YAxis 
-                        yAxisId="left"
-                        label={{ value: 'MB/s', angle: -90, position: 'insideLeft' }}
-                      />
-                      <YAxis 
-                        yAxisId="right" 
-                        orientation="right" 
-                        domain={[0, 100]}
-                        label={{ value: 'Load %', angle: 90, position: 'insideRight' }}
-                      />
-                      <Tooltip />
-                      <Legend />
-                      <Line 
-                        yAxisId="left"
-                        type="monotone" 
-                        dataKey="processingSpeed" 
-                        name="Processing Speed" 
-                        stroke="#4299e1" 
-                        activeDot={{ r: 8 }} 
-                      />
-                      <Line 
-                        yAxisId="right"
-                        type="monotone" 
-                        dataKey="systemLoad" 
-                        name="System Load" 
-                        stroke="#f56565" 
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="mb-2">
+                <label className="block text-sm">Processing Efficiency</label>
+                <input 
+                  type="range" 
+                  min="10" 
+                  max="100" 
+                  value={coreSettings[selectedCore]?.efficiency || 50} 
+                  onChange={(e) => updateCoreSetting(selectedCore, 'efficiency', parseInt(e.target.value))} 
+                  className="range"
+                  disabled={isRunning}
+                />
+                <p>Efficiency: {coreSettings[selectedCore]?.efficiency || 50}%</p>
+                <p className="text-xs text-gray-500">Higher efficiency means faster processing but may generate more heat</p>
               </div>
             </div>
+          )}
+          
+          {/* Simulation Statistics */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="border p-4 rounded-lg">
+              <h3 className="font-semibold mb-2">Performance Metrics</h3>
+              <p><strong>Total Data Processed:</strong> {simulationStats.totalProcessed} MB</p>
+              <p><strong>Average Core Load:</strong> {simulationStats.averageLoad}%</p>
+              <p><strong>Overall Efficiency:</strong> {simulationStats.overallEfficiency}%</p>
+            </div>
             
-            {/* Right Column */}
-            <div className="space-y-4">
-              {/* Configuration Panel */}
-              {renderConfigPanel()}
-              
-              {/* Alerts */}
-              <div className="p-4 border rounded-lg bg-white shadow-sm">
-                <div className="flex items-center mb-2">
-                  <AlertTriangle size={20} className="mr-2 text-yellow-500" />
-                  <h3 className="text-lg font-semibold">Alerts</h3>
-                </div>
-                <div className="space-y-2">
-                  {alerts.length > 0 ? (
-                    alerts.map(alert => (
-                      <div 
-                        key={alert.id}
-                        className={`p-2 rounded-lg ${
-                          alert.type === 'critical' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {alert.message}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500">No alerts at this time.</p>
-                  )}
-                </div>
-              </div>
-              
-              {/* System Logs */}
-              <div className="p-4 border rounded-lg bg-white shadow-sm">
-                <h3 className="text-lg font-semibold mb-2">System Logs</h3>
-                <div className="h-64 overflow-y-auto border rounded p-2 bg-gray-900 text-gray-100 font-mono text-xs">
-                  {logs.map(log => (
-                    <div 
-                      key={log.id} 
-                      className={`mb-1 ${
-                        log.type === 'error' ? 'text-red-400' : 
-                        log.type === 'warning' ? 'text-yellow-400' : 
-                        log.type === 'success' ? 'text-green-400' : 'text-gray-300'
-                      }`}
-                    >
-                      [{log.timestamp}] {log.message}
-                    </div>
+            {/* Alerts Section */}
+            <div className="border p-4 rounded-lg">
+              <h3 className="font-semibold mb-2">Alerts</h3>
+              {simulationStats.alerts.length > 0 ? (
+                <ul className="text-sm">
+                  {simulationStats.alerts.map((alert, index) => (
+                    <li key={index} className="text-red-500 mb-1">{alert}</li>
                   ))}
-                  <div ref={logEndRef} />
-                </div>
-              </div>
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500">No alerts</p>
+              )}
             </div>
           </div>
         </div>
@@ -726,4 +438,4 @@ const DataPipelineSimulation = () => {
   );
 };
 
-export default DataPipelineSimulation;
+export default DataPipelineSimulationTest;
