@@ -254,7 +254,7 @@ const SystemSimulation = () => {
   );
 
   return (
-    <div>
+    <div className='z-10'>
       <div className="flex min-h-screen pt-[4%] pb-1 px-2">
         <div className="w-full flex rounded-lg">
           {/* Left Sidebar */}

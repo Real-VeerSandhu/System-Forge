@@ -27,7 +27,7 @@ function Navbar() {
   // );
 
   return (
-    <nav className="w-full shadow-md py-3 px-6 flex justify-between items-center fixed top-0 left-0 right-0 z-50">
+    <nav className="w-full shadow-md py-3 px-6 flex justify-between items-center fixed top-0 left-0 right-0 bg-white z-100">
       <h3 className="text-xl font-bold">My App</h3>
       <div className="space-x-4">
         <Link to="/" className=" hover:text-secondary">Home</Link>
